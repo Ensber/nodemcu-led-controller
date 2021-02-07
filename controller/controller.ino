@@ -1,15 +1,14 @@
 #include <Arduino.h>
 #include "quadSevenSegment.cpp"
 
-// GPIO pin declaration
-#define SR_CLK 6
-#define SR_IN 7
-#define SR_PUSH 11
+//#include "webContent.hpp"
 
-#define DIS1 8
-#define DIS2 9
-#define DIS3 10
-#define DIS4 13
+//TODO: all over shift registers
+
+// shift register pins
+#define SR_CLK 2
+#define SR_IN 4
+#define SR_PUSH 5
 
 // PWM Pins
 #define PWM_R 15
@@ -17,20 +16,33 @@
 #define PWM_B 14
 
 void setup() {
-    //pinMode(1, OUTPUT);
-    pinMode(LED_BUILTIN, OUTPUT);
 
-    int displays[4] = {DIS1, DIS2, DIS3, DIS4};
-    quadSevenSegment QSS = quadSevenSegment(
-        SR_CLK, SR_IN, SR_PUSH, 
-        displays
-    );
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  Serial.begin(115200);
+  Serial.println("\n\nStarting...");
+
+  quadSevenSegment QSS = quadSevenSegment(
+    SR_CLK, 
+    SR_IN, 
+    SR_PUSH
+  );
+
+  char display[] = {'1','2','3','4'};
+  QSS.setDisplay(display);
+  QSS.updateDisplay();
+  QSS.allOn();
+  QSS.updateDisplay();
+  // QSS.deactivate();
+  QSS.clear();
+  QSS.updateDisplay();
+  // QSS.activate();
 }
 
 void loop() {
 
   digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1);                       // wait for a second
+  delay(100);                        // wait for a second
   digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-  delay(100);   
+  delay(1000);   
 }
