@@ -1,7 +1,6 @@
 #include <Arduino.h>
-#include "quadSevenSegment.cpp"
-
-//#include "webContent.hpp"
+#include "./quadSevenSegment.cpp"
+//#include "./webserver.cpp"
 
 //TODO: all over shift registers
 
