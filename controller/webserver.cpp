@@ -2,6 +2,7 @@
 #include "credentials.hpp"
 #include "webContent.hpp"
 #include "globals.hpp"
+// #include "includes/arduinoWebSockets/WebSocketsServer.h"
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -14,6 +15,7 @@ const char* ssid = STASSID;
 const char* password = STAPSK;
 
 ESP8266WebServer server(80);
+WebSocketsServer webSocket = WebSocketsServer(81);
 
 unsigned int hexToDec(String hexString) {
   
@@ -60,11 +62,14 @@ void handleNotFound() {
     return;
   }*/
   std::string uri = string(server.uri().c_str());
-  if (uri == "/") uri = "/index.html";
   int index = findWebContent(uri);
   if (index != -1) {
-    int len = webContent[index][1].length();
-    server.send(200, "text/html", webContent[index][1].c_str(), len);
+    server.send(
+      200,
+      webContent[index].mime,
+      webContent[index].content,
+      strlen(webContent[index].content)//webContent[index].length // will always be to large since we are using \ to escape chars, wich are counted...
+    );
     return;
   }
 
@@ -84,28 +89,61 @@ void handleNotFound() {
 }
 
 void handleLedSet() {
-  int r,g,b = 0;
+  int r,g,b,a = 0;
   for (uint8_t i = 0; i < server.args(); i++) {
     if (server.argName(i) == "rgb") {
       String rgb = server.arg(i);
       r = hexToDec(rgb.substring(0,2));
       g = hexToDec(rgb.substring(2,4));
       b = hexToDec(rgb.substring(4,6));
+      a = hexToDec(rgb.substring(6,8));
       Serial.println("R"+ r);
       Serial.println("G"+ g);
       Serial.println("B"+ b);
+      Serial.println("A"+ a);
       // set led PWM
 
-      analogWrite(PWM_R,r*4);
-      analogWrite(PWM_G,g*4);
-      analogWrite(PWM_B,b*4);
+      analogWrite(PWM_R,r*4-((r>128)*3));
+      analogWrite(PWM_G,g*4-((g>128)*3));
+      analogWrite(PWM_B,b*4-((b>128)*3));
 
-      server.send(200, "text/plain", String()+r+"-"+g+"-"+b); return;
+      server.send(200, "text/plain", String()+r+"-"+g+"-"+b+"-"+a); return;
     }
     //message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
   }
   server.send(500, "text/plain", "missing rgb parameter");
 }
+
+// void webSocketEvent(byte num, WStype_t type, uint8_t * payload, size_t length)
+// {
+//   char buffer[9] = "00000000";
+//   for (int i = 0; i < length && i < 8; i++) {buffer[i] = (char)payload[i];};
+//   buffer[8] = 0;
+//   string color = string(buffer);
+
+//   if(type == WStype_TEXT)
+//   {
+//     if (payload[0] == '0')
+//     {
+//       //digitalWrite(pin_led, LOW);
+//       Serial.println("LED=off");        
+//     }
+//     else if (payload[0] == '1')
+//     {
+//       //digitalWrite(pin_led, HIGH);
+//       Serial.println("LED=on");        
+//     }
+//   }
+ 
+//   else  // event is not TEXT. Display the details in the serial monitor
+//   {
+//     Serial.print("WStype = ");   Serial.println(type);  
+//     Serial.print("WS payload = ");
+// // since payload is a pointer we need to type cast to char
+//     for(int i = 0; i < length; i++) { Serial.print((char) payload[i]); }
+//     Serial.println();
+//   }
+// }
 
 void web_setup() {
   pinMode(PWM_R, OUTPUT);
@@ -114,9 +152,6 @@ void web_setup() {
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  Serial.println("");
-  Serial.println("4");
-  Serial.println(webContent[4][1].length());
 
   // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
@@ -133,12 +168,16 @@ void web_setup() {
     Serial.println("MDNS responder started");
   }
 
-  server.on("/", handleRoot);
+  //server.on("/", handleRoot);
   server.on("/api/setLed", handleLedSet);
   server.onNotFound(handleNotFound);
 
   server.begin();
   Serial.println("HTTP server started");
+
+  // webSocket.begin();
+  // webSocket.onEvent(webSocketEvent);
+  // Serial.println("Websocket server started");
 }
 
 int counter = 0;

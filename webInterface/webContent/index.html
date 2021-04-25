@@ -1,4 +1,158 @@
-<script src="/lzw.js"></script>
+
+<!DOCTYPE html>
+<style>
+html, body {
+    margin:0;
+    padding:0;
+}
+
+.center {
+  margin: auto;
+  width: 50%;
+  border: 1px solid black;
+  padding: 10px;
+  top: 50vh;
+  transform: translate(0,-50%);
+}
+
+body {
+  background-color: gray; 
+}
+
+.circle {
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  border-color: black;
+}
+</style>
+<style>
+body {
+    background-image: url('media/nggyu.gif');
+    background-repeat: no-repeat;
+    background-size: auto -100vh;
+    background-color: gray; 
+    background-position: center top;
+}
+</style>
+
+
+<html lang="de">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!--link rel="shortcut icon" type="image/x-icon" href="/favicon.ico"-->
+        <link rel="shortcut icon" href="/favicon.ico" />
+        <title></title>
+    </head>
+    <body>
+        <style>
+    .navBar {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        padding-left: 0px;
+        background-color: rgb(156,0,0);
+    }
+    .li-nav {
+        float: left;
+        text-align: -webkit-match-parent;
+    }
+    
+    .a-nav {
+        padding: 10px;
+        color: white;
+        float: left;
+    }
+    
+    .li-nav:hover {
+        background-color: darkgray;
+    }
+
+    .a-right {
+        float: right;
+    }
+
+    .li-right {
+        float: revert;
+    }
+</style>
+<nav>
+    <ul class="navBar">
+        <li class="li-nav"><a class="a-nav" href="/leds.html">Led setter</a></li>
+        <li class="li-nav"><a class="a-nav" href="/vm/main.html">VM</a></li>
+        <li class="li-nav"><a class="a-nav" href="/schiffeVersenken/lobby.lua">Schiffe versenken</a></li>
+        <li class="li-nav"><a class="a-nav" href="/bingo/main.lua">Wetten-Board</a></li>
+        <li class="li-nav"><a class="a-nav" href="/urlShortener/index.html">URL-Verkürtzer</a></li>
+        
+        <li class="li-nav"><a class="a-nav" href="/redirect/basti">zu Sebastians Seite</a></li>
+        <li class="li-nav li-right"><a class="a-nav a-right" href="/login.lua">Login</a></li>
+    </ul>
+</nav>
+        <div style="background-color: rgb(0,0,0,0.5); width: fit-content; min-width: 30%; position: relative;" class="center">
+            <div style="padding: 3%; width: fit-content;">
+                <span style="color: rgb(21, 207, 46);">Color Picker: </span>
+            </div>
+            <span style="background-color: red; display:none" id="info"></span>
+        </div>
+    </body>
+</html>
+<link href="color-picker.min.css" rel="stylesheet">
+<script src="color-picker.min.js"></script>
 <script>
-    loadLzwContent("/test.html",document.write)
+    var picker = new CP(document.querySelector('.center'));
+
+    var syncInProgress = false
+    function syncer() {
+        if (syncInProgress) return; // only one sync at the time
+        console.log("syncing...")
+        syncInProgress = true
+
+        var color = picker.get();
+        var r = color[0]
+        var g = color[1]
+        var b = color[2]
+        var a = Math.floor(color[3] * 255)
+
+        var hex = toHex(r)+toHex(g)+toHex(b)+toHex(a);
+        var oReq = new XMLHttpRequest();
+        oReq.open("GET", "/api/setLed?rgb="+hex, true);
+        oReq.responseType = "text";
+
+        oReq.onload = function(oEvent) {
+            if (oReq.status != 200) {
+                syncInProgress = false
+                alert("Error in download button");
+                console.log("Error in download button");
+                return;
+            }
+            console.log(oReq.responseText);
+            var color = picker.get();
+            var r = color[0]
+            var g = color[1]
+            var b = color[2]
+            var a = Math.floor(color[3] * 255)
+            ok = oReq.responseText == r + "-" + g + "-" + b + "-" + a
+            console.log("this was ok: ",ok)
+            syncInProgress = false
+            if (!ok) return syncer();
+        };
+        oReq.send();
+    }
+
+    picker.set(169, 169, 169, 255);
+    function toHex(n){
+        var out = n.toString(16)
+        if (out.length == 1) out = "0" + out;
+        return out
+    }
+    function onChange(r, g, b, a) {
+        this.source.value = this.color(r, g, b, a);
+        document.body.style.backgroundColor = this.color(r, g, b, a);
+        syncer()
+    }
+    picker.on('change', onChange);
+    picker.enter();
 </script>
+

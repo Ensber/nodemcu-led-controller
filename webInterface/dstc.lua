@@ -5,24 +5,22 @@
 
 require("lfs")
 
-function jsLzw(str)
-  hs = ""
-  -- convert string to hex
-  for i=1,#str do
-    local sb = string.byte(str,i,i)
-    local to = string.format("%x",sb)
-    if #to == 1 then to = "0" .. to end
-    hs = hs .. to
+redirectSize = 0
+f = io.open("redirect.routes","r")
+redirects = "string redirects[][2] = {"
+while f do
+  l = f:read()
+  if not l then break end
+  sEnd = l:find("//")
+  if sEnd then
+    l = l:sub(1,sEnd-1)
   end
-
-  -- dirty, but idc at this point
-  -- run js lzw compression
-  local p = io.popen("node lzw.js "..hs,"r")
-  local out = p:read("*all")
-  p:close()
-
-  return out
+  if l:find("\t") then
+    redirects = redirects .. "\n  {\"" .. l:gsub('"',""):gsub("\t",'","') .. "\"},"
+    redirectSize = redirectSize + 1
+  end
 end
+redirects = "int redirectSize = " .. redirectSize .. ";\n" .. redirects:sub(1,-2) .. "\n};\n"
 
 switches = {}
 args = {...}
@@ -33,7 +31,7 @@ for _,v in pairs(args) do
 end
 
 specialHandler = {}
-function specialHandler.html(data)
+function specialHandler.html(data,cType)
   local dl = #data
   -- trim data
   data:gsub("\t","    ") -- spaces in front and after are deleted later
@@ -51,7 +49,7 @@ function specialHandler.html(data)
   if #data < dl then
     print("-> trimmed to "..#data.." bytes ("..math.floor(#data/dl*100).."%)")
   end
-  if #data > 2048 then
+  if #data > 2048 and false then -- ##### DEACTVATED
     -- compress here
     data = jsLzw(data):sub(1,-2) -- remove \n
 
@@ -62,17 +60,13 @@ function specialHandler.html(data)
   end
   data = data:gsub("\n","\\n")
   data = '"' .. data:gsub("\"","\\\"") .. '"'
-  return data
+  return '"' .. (cType or "text/html") .. '",' .. (#data - 1) .. "," .. data
 end
-specialHandler.css = specialHandler.html
-specialHandler.js = specialHandler.html
+specialHandler.css = function (data) return specialHandler.html(data,"text/css") end
+specialHandler.js = function (data) return specialHandler.html(data,"text/javascript") end
 
 function specialHandler.png(data)
-  if #data > 2048 then
-    print("[ERROR] maximum length of ardui strings is 2048B, ignoring file")
-    return '"IGNORED FILE BY dstc.lua"'
-  end
-  if switches["nopng"] then return '""' end
+  if switches["nopng"] or #data > 4000 then return  '"text/plain",27,"IGNORED OR BIGGER THAN 4KB"' end
   local t0 = os.clock()
   local out = '"'
   local outTab = {}
@@ -116,7 +110,8 @@ function specialHandler.png(data)
 
   table.insert(outTab, out)
   print("\r100% time: "..(os.clock()-t0).."s")
-  return table.concat( outTab ) .. '"'
+  data = table.concat( outTab ) .. '"'
+  return  '"image/png",' .. (#data - 1) .. "," .. data
 end
 
 fileCount = 0
@@ -171,13 +166,26 @@ hData1 = [[
 
 using namespace std;
 
+struct wcontent {
+  string path;
+  char* mime;
+  int length;
+  char* content;
+};
+
 int webContentSize = ]]..fileCount..[[;
-string webContent[]]..fileCount..[[][2]={
+struct wcontent webContent[]]..fileCount..[[]={
 ]]
-hData3 = "\n\n"..[[
+hData3 = "\n\n" .. redirects .. "\n"..[[
 int findWebContent(string search) {
+  for(int i = 0; i < redirectSize; i++){
+    if (redirects[i][0] == search) {
+      search = redirects[i][1];
+      break;
+    }
+  }
   for(int i = 0; i < webContentSize; i++){
-    if (webContent[i][0] == search) {
+    if (webContent[i].path == search) {
       return i;
     }
   } 
